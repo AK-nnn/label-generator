@@ -27,7 +27,7 @@ FONT_PATH = "NotoSansThai-Bold.ttf"
 # =========================
 
 def auto_fit_font(draw, text, max_width, max_height):
-    size = 500  # ขนาดเริ่มต้นใหญ่ ๆ
+    size = 400  # ขนาดเริ่มต้นใหญ่ ๆ
     while size > 10:
         font = ImageFont.truetype(FONT_PATH, size)
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -103,7 +103,7 @@ def generate_label(p_name, p_type, pk_num, date_str):
     # =========================
     # D. วันที่
     # =========================
-    date_font = ImageFont.truetype(FONT_PATH, 120)
+    date_font = ImageFont.truetype(FONT_PATH, 60)
 
     draw.text(
         (TOTAL_W - 40, TOTAL_H - (SEC_D_H/2)),
@@ -189,4 +189,5 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
 
