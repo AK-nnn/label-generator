@@ -21,46 +21,65 @@ def generate_label(display_name, p_type, pk_num, date_str):
     bg_color = color_map.get(str(p_type).strip(), "gray")
     draw.rectangle([5, 5, TOTAL_W-5, SEC_A_H], fill=bg_color)
     
+    # Path ฟอนต์มาตรฐานบน Linux (Streamlit Cloud)
     font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     
     def get_font(text, max_w, max_h, start_size):
         size = start_size
-        f = ImageFont.load_default()
+        # กรณีหาฟอนต์ในระบบไม่เจอ จะใช้ default
+        if not os.path.exists(font_path):
+            return ImageFont.load_default()
+        
+        f = ImageFont.truetype(font_path, size)
         while size > 10:
-            try:
-                if os.path.exists(font_path): f = ImageFont.truetype(font_path, size)
-                else: break
-            except: break
             bbox = draw.textbbox((0,0), text, font=f)
-            if (bbox[2]-bbox[0]) <= max_w-60: break
+            w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
+            if w <= max_w-80 and h <= max_h-20: 
+                break
             size -= 10
+            f = ImageFont.truetype(font_path, size)
         return f
 
-    draw.text((TOTAL_W/2, SEC_A_H/2), str(display_name).upper(), fill="white", anchor="mm", font=get_font(str(display_name), TOTAL_W, SEC_A_H, 350))
-    draw.text((SEC_B_W/2, SEC_A_H + (SEC_A_H/2)), f"PK {pk_num}", fill="black", anchor="mm", font=get_font(f"PK {pk_num}", SEC_B_W, SEC_A_H, 350))
+    # A. ProductName (ขยายใหญ่ - ตัวขาว)
+    f_prod = get_font(str(display_name).upper(), TOTAL_W, SEC_A_H, 400)
+    draw.text((TOTAL_W/2, SEC_A_H/2), str(display_name).upper(), fill="white", anchor="mm", font=f_prod)
+
+    # B. PK Code (ขยายใหญ่ - ตัวดำ)
+    f_pk = get_font(f"PK {pk_num}", SEC_B_W, SEC_A_H, 450)
+    draw.text((SEC_B_W/2, SEC_A_H + (SEC_A_H/2)), f"PK {pk_num}", fill="black", anchor="mm", font=f_pk)
     
+    # C. QR Code
     qr_data = f"{str(display_name).replace(' ', '')} PK{pk_num}"
-    qr = qrcode.make(qr_data)
-    qr_img = qr.resize((SEC_C_W - 60, SEC_C_W - 60))
-    img.paste(qr_img, (SEC_B_W + 30, SEC_A_H + 30))
+    qr = qrcode.QRCode(box_size=1, border=1)
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    qr_img = qr.make_image().resize((SEC_C_W - 40, SEC_C_W - 40))
+    img.paste(qr_img, (SEC_B_W + 20, SEC_A_H + 20))
     
-    draw.text((TOTAL_W - 60, TOTAL_H - (SEC_D_H/2)), f"Date: {date_str}", fill="black", anchor="rm")
+    # D. Date (ปรับให้ตัวใหญ่ขึ้นชัดเจน)
+    # ใช้ฟอนต์หนาขนาด 80 เพื่อให้มองเห็นชัด
+    try:
+        f_date = ImageFont.truetype(font_path, 80)
+    except:
+        f_date = ImageFont.load_default()
     
+    draw.text((TOTAL_W - 40, TOTAL_H - (SEC_D_H/2)), f"Date: {date_str}", fill="black", anchor="rm", font=f_date)
+    
+    # วาดเส้นแบ่ง
     draw.line([(0, SEC_A_H), (TOTAL_W, SEC_A_H)], fill="black", width=5)
     draw.line([(SEC_B_W, SEC_A_H), (SEC_B_W, TOTAL_H-SEC_D_H)], fill="black", width=5)
     draw.line([(0, TOTAL_H-SEC_D_H), (TOTAL_W, TOTAL_H-SEC_D_H)], fill="black", width=5)
     return img
 
-# --- UI ---
+# --- UI Streamlit ---
 st.set_page_config(page_title="Generator ป้ายภาชนะ", layout="centered")
 st.title("📦 ระบบสร้างป้ายภาชนะสินค้า")
 
-# --- ส่วนการค้นหาไฟล์แบบยืดหยุ่น ---
-files_in_dir = os.listdir('.')
-csv_files = [f for f in files_in_dir if f.lower() == 'products.csv']
+# ค้นหาไฟล์ Products.csv
+files = [f for f in os.listdir('.') if f.lower() == 'products.csv']
 
-if csv_files:
-    CSV_FILE = csv_files[0]
+if files:
+    CSV_FILE = files[0]
     try:
         df = pd.read_csv(CSV_FILE, encoding='utf-8-sig')
     except:
@@ -68,41 +87,28 @@ if csv_files:
     
     df.columns = df.columns.str.strip()
     
-    with st.expander("➕ เพิ่มสินค้าใหม่"):
-        new_fn = st.text_input("FullName")
-        new_pn = st.text_input("ProductName")
-        new_t = st.selectbox("ประเภท", ["กรด", "ด่าง", "กลาง"])
-        if st.button("บันทึก"):
-            new_row = pd.DataFrame([{"FullName": new_fn, "ProductName": new_pn, "Type": new_t}])
-            df = pd.concat([df, new_row], ignore_index=True)
-            df.to_csv(CSV_FILE, index=False, encoding='utf-8-sig')
-            st.success("บันทึกแล้ว!")
-            st.rerun()
-
-    st.divider()
-
-    # ตรวจสอบว่ามีคอลัมน์ครบไหม
+    # ส่วนเลือกสินค้า
     if "FullName" in df.columns:
-        full_name_list = sorted(df["FullName"].dropna().unique().tolist())
-        selected_full = st.selectbox("1. ค้นหาชื่อสินค้า (FullName)", options=["--- โปรดเลือกสินค้า ---"] + full_name_list)
+        full_names = sorted(df["FullName"].dropna().unique().tolist())
+        selected = st.selectbox("เลือกสินค้า (FullName)", options=["--- กรุณาเลือก ---"] + full_names)
         
-        if selected_full != "--- โปรดเลือกสินค้า ---":
-            row = df[df["FullName"] == selected_full].iloc[0]
-            prod_name = row["ProductName"]
-            prod_type = row["Type"]
+        if selected != "--- กรุณาเลือก ---":
+            row = df[df["FullName"] == selected].iloc[0]
+            p_name = row["ProductName"]
+            p_type = row["Type"]
             
-            st.info(f"🏷️ ชื่อบนป้าย: **{prod_name}** | 🎨 ประเภท: **{prod_type}**")
-            pk_val = st.text_input("2. รหัสภาชนะ 3 หลัก", "000", max_chars=3)
-            date_val = st.date_input("3. วันที่", datetime.now())
+            st.success(f"ชื่อบนป้าย: {p_name} | ประเภท: {p_type}")
+            pk = st.text_input("รหัสภาชนะ 3 หลัก", "000", max_chars=3)
+            dt = st.date_input("วันที่", datetime.now())
 
             if st.button("🚀 สร้างป้าย"):
-                res = generate_label(prod_name, prod_type, pk_val, date_val.strftime("%d/%m/%Y"))
-                st.image(res)
+                res = generate_label(p_name, p_type, pk, dt.strftime("%d/%m/%Y"))
+                st.image(res, use_container_width=True)
+                
                 buf = io.BytesIO()
                 res.save(buf, format="PNG")
-                st.download_button("📥 Download PNG", buf.getvalue(), f"Label_{pk_val}.png")
+                st.download_button("📥 ดาวน์โหลดป้าย", buf.getvalue(), f"Label_{pk}.png")
     else:
-        st.error(f"ไฟล์พบแล้วแต่หัวตารางผิด! หัวตารางที่มีคือ: {list(df.columns)}")
+        st.error("หัวตารางในไฟล์ CSV ไม่ถูกต้อง")
 else:
-    st.error("❌ ไม่พบไฟล์ Products.csv ใน GitHub ของคุณ กรุณาอัปโหลดไฟล์ไปที่หน้าแรกของ Repository")
-    st.write("ไฟล์ที่พบในระบบตอนนี้คือ:", files_in_dir)
+    st.error("ไม่พบไฟล์ Products.csv")
