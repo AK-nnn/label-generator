@@ -20,7 +20,7 @@ SEC_B_W = cm_to_px(12.5)
 SEC_C_W = cm_to_px(5.0)
 SEC_D_H = cm_to_px(0.9)
 
-FONT_PATH = "fonts/NotoSansThai-Bold.ttf"
+FONT_PATH = "NotoSansThai-Bold.ttf"
 
 # =========================
 # 2. ฟังก์ชันคำนวณฟอนต์อัตโนมัติ
@@ -189,3 +189,4 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
