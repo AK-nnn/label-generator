@@ -96,9 +96,9 @@ def generate_label(p_name, p_type, pk_num, date_str):
     # C. QR Code
     # =========================
     qr = qrcode.make(f"{str(p_name).replace(' ', '')}PK{pk_num}")
-    qr_size = SEC_C_W - 60
+    qr_size = SEC_C_W - 40
     qr_img = qr.resize((qr_size, qr_size))
-    img.paste(qr_img, (SEC_B_W + 30, SEC_A_H + 30))
+    img.paste(qr_img, (SEC_B_W + 20, SEC_A_H + 20))
 
     # =========================
     # D. วันที่
@@ -189,6 +189,7 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
 
 
 
