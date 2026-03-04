@@ -6,107 +6,128 @@ from datetime import datetime
 import io
 import os
 
-# --- Config ขนาด (300 DPI) ---
+# --- 1. ตั้งค่าคงที่ (DPI 300) ---
 DPI = 300
 def cm_to_px(cm): return int((cm / 2.54) * DPI)
-TOTAL_W, TOTAL_H = cm_to_px(17.5), cm_to_px(12.7)
-SEC_A_H, SEC_B_W, SEC_C_W, SEC_D_H = cm_to_px(5.9), cm_to_px(12.5), cm_to_px(5.0), cm_to_px(0.9)
 
-def generate_label(display_name, p_type, pk_num, date_str):
+TOTAL_W, TOTAL_H = cm_to_px(17.5), cm_to_px(12.7)
+SEC_A_H = cm_to_px(5.9)
+SEC_B_W = cm_to_px(12.5)
+SEC_C_W = cm_to_px(5.0)
+SEC_D_H = cm_to_px(0.9)
+
+# --- 2. ฟังก์ชันโหลดฟอนต์ที่เสถียรที่สุด ---
+def get_safe_font(size):
+    paths = [
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return ImageFont.truetype(p, size)
+    return ImageFont.load_default()
+
+# --- 3. ฟังก์ชันสร้างรูปป้าย ---
+def generate_label(p_name, p_type, pk_num, date_str):
     img = Image.new('RGB', (TOTAL_W, TOTAL_H), color='white')
     draw = ImageDraw.Draw(img)
     
-    # วาดกรอบนอกสุด (เส้นหนาขึ้นเพื่อให้เห็นชัดตอนตัด)
-    draw.rectangle([0, 0, TOTAL_W-1, TOTAL_H-1], outline="black", width=8)
+    # วาดกรอบตัด (หนาพิเศษ)
+    draw.rectangle([0, 0, TOTAL_W, TOTAL_H], outline="black", width=10)
     
-    # Mapping สี
-    color_map = {"กรด": "#FF0000", "ด่าง": "#0000FF", "กลาง": "#008000"}
-    bg_color = color_map.get(str(p_type).strip(), "gray")
-    draw.rectangle([8, 8, TOTAL_W-8, SEC_A_H], fill=bg_color)
+    # ตั้งสีตามประเภท (เปลี่ยนเป็น Eng)
+    color_map = {
+        "acid": "#FF0000",   # กรด -> Red
+        "base": "#0000FF",   # ด่าง -> Blue
+        "neutral": "#008000" # กลาง -> Green
+    }
+    # รองรับทั้งไทยและอังกฤษจากไฟล์เดิม
+    type_clean = str(p_type).strip()
+    if type_clean == "กรด": type_clean = "acid"
+    elif type_clean == "ด่าง": type_clean = "base"
+    elif type_clean == "กลาง": type_clean = "neutral"
     
-    font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+    bg_color = color_map.get(type_clean.lower(), "gray")
+    draw.rectangle([10, 10, TOTAL_W-10, SEC_A_H], fill=bg_color)
     
-    def get_font(text, max_w, max_h, start_size):
-        size = start_size
-        if not os.path.exists(font_path):
-            return ImageFont.load_default()
-        
-        f = ImageFont.truetype(font_path, size)
-        while size > 20:
-            bbox = draw.textbbox((0,0), text, font=f)
-            w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-            # ปรับให้เหลือ Margin แค่ 30 พิกเซล (เพื่อให้ฟอนต์ขยายได้เกือบเต็มพื้นที่)
-            if w <= max_w-30 and h <= max_h-10: 
-                break
-            size -= 5
-            f = ImageFont.truetype(font_path, size)
-        return f
+    # เขียนชื่อสินค้า (ProductName)
+    f_prod = get_safe_font(300)
+    draw.text((TOTAL_W/2, SEC_A_H/2), str(p_name).upper(), fill="white", anchor="mm", font=f_prod)
 
-    # A. ProductName (ขยายให้สะใจ เริ่มที่ 600)
-    f_prod = get_font(str(display_name).upper(), TOTAL_W, SEC_A_H, 600)
-    draw.text((TOTAL_W/2, SEC_A_H/2), str(display_name).upper(), fill="white", anchor="mm", font=f_prod)
-
-    # B. PK Code (ขยายให้สะใจ เริ่มที่ 800)
-    f_pk = get_font(f"PK {pk_num}", SEC_B_W, SEC_A_H, 800)
+    # เขียนรหัส PK
+    f_pk = get_safe_font(400)
     draw.text((SEC_B_W/2, SEC_A_H + (SEC_A_H/2)), f"PK {pk_num}", fill="black", anchor="mm", font=f_pk)
     
-    # C. QR Code
-    qr_data = f"{str(display_name).replace(' ', '')} PK{pk_num}"
-    qr = qrcode.QRCode(box_size=1, border=1)
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-    # ขยาย QR ให้ใหญ่ขึ้นอีกนิด
-    qr_img = qr.make_image().resize((SEC_C_W - 20, SEC_C_W - 20))
-    img.paste(qr_img, (SEC_B_W + 10, SEC_A_H + 10))
+    # QR Code
+    qr = qrcode.make(f"{str(p_name).replace(' ', '')}PK{pk_num}")
+    qr_img = qr.resize((SEC_C_W - 50, SEC_C_W - 50))
+    img.paste(qr_img, (SEC_B_W + 25, SEC_A_H + 25))
     
-    # D. Date (ขยายเป็นขนาด 100)
-    try:
-        f_date = ImageFont.truetype(font_path, 100)
-    except:
-        f_date = ImageFont.load_default()
+    # วันที่ (ปรับขนาดฟอนต์ให้ใหญ่ขึ้น)
+    f_date = get_safe_font(80)
+    draw.text((TOTAL_W - 50, TOTAL_H - (SEC_D_H/2)), f"Date: {date_str}", fill="black", anchor="rm", font=f_date)
     
-    draw.text((TOTAL_W - 30, TOTAL_H - (SEC_D_H/2)), f"Date: {date_str}", fill="black", anchor="rm", font=f_date)
+    # เส้นแบ่งโครงสร้าง
+    draw.line([(0, SEC_A_H), (TOTAL_W, SEC_A_H)], fill="black", width=10)
+    draw.line([(SEC_B_W, SEC_A_H), (SEC_B_W, TOTAL_H-SEC_D_H)], fill="black", width=10)
+    draw.line([(0, TOTAL_H-SEC_D_H), (TOTAL_W, TOTAL_H-SEC_D_H)], fill="black", width=10)
     
-    # วาดเส้นแบ่งโครงสร้าง (หนา 8 พิกเซล)
-    draw.line([(0, SEC_A_H), (TOTAL_W, SEC_A_H)], fill="black", width=8)
-    draw.line([(SEC_B_W, SEC_A_H), (SEC_B_W, TOTAL_H-SEC_D_H)], fill="black", width=8)
-    draw.line([(0, TOTAL_H-SEC_D_H), (TOTAL_W, TOTAL_H-SEC_D_H)], fill="black", width=8)
     return img
 
-# --- ส่วน UI เหมือนเดิม ---
-st.set_page_config(page_title="Generator ป้ายภาชนะ", layout="centered")
-st.title("📦 ระบบสร้างป้ายภาชนะสินค้า")
+# --- 4. ส่วนหน้าเว็บ Streamlit ---
+st.set_page_config(page_title="Easy Label", layout="centered")
+st.title("🏷️ เครื่องมือสร้างป้ายสินค้า (Simple Ver.)")
 
-files = [f for f in os.listdir('.') if f.lower() == 'products.csv']
+CSV_FILE = "Products.csv"
 
-if files:
-    CSV_FILE = files[0]
-    try:
-        df = pd.read_csv(CSV_FILE, encoding='utf-8-sig')
-    except:
-        df = pd.read_csv(CSV_FILE, encoding='cp874')
+# โหลดข้อมูลสินค้า
+@st.cache_data
+def load_data():
+    if os.path.exists(CSV_FILE):
+        try:
+            return pd.read_csv(CSV_FILE, encoding='utf-8-sig')
+        except:
+            return pd.read_csv(CSV_FILE, encoding='cp874')
+    return pd.DataFrame(columns=["FullName", "ProductName", "Type"])
+
+df = load_data()
+df.columns = df.columns.str.strip()
+
+# --- เมนูเพิ่มสินค้า (กู้คืนมาแล้ว) ---
+with st.expander("➕ เพิ่มสินค้าใหม่ (Add New Product)"):
+    col1, col2 = st.columns(2)
+    with col1:
+        new_f = st.text_input("FullName (ชื่ออ้างอิง)")
+        new_p = st.text_input("ProductName (ชื่อบนป้าย)")
+    with col2:
+        new_t = st.selectbox("Type", ["acid", "base", "neutral"])
     
-    df.columns = df.columns.str.strip()
+    if st.button("บันทึกลงฐานข้อมูล"):
+        if new_f and new_p:
+            new_row = pd.DataFrame([{"FullName": new_f, "ProductName": new_p, "Type": new_t}])
+            new_df = pd.concat([df, new_row], ignore_index=True)
+            new_df.to_csv(CSV_FILE, index=False, encoding='utf-8-sig')
+            st.success("บันทึกสำเร็จ! กรุณารีเฟรชหน้าเว็บ")
+            st.cache_data.clear()
+            st.rerun()
+
+st.divider()
+
+# --- ส่วนสร้างป้าย ---
+if not df.empty:
+    target_full = st.selectbox("1. เลือกสินค้า", options=df["FullName"].unique())
+    row = df[df["FullName"] == target_full].iloc[0]
     
-    if "FullName" in df.columns:
-        full_names = sorted(df["FullName"].dropna().unique().tolist())
-        selected = st.selectbox("เลือกสินค้า (FullName)", options=["--- กรุณาเลือก ---"] + full_names)
+    pk_no = st.text_input("2. รหัส PK", "000", max_chars=3)
+    dt_now = st.date_input("3. วันที่", datetime.now())
+    
+    if st.button("🚀 สร้างป้ายและดูตัวอย่าง"):
+        result = generate_label(row["ProductName"], row["Type"], pk_no, dt_now.strftime("%d/%m/%Y"))
+        st.image(result, use_container_width=True)
         
-        if selected != "--- กรุณาเลือก ---":
-            row = df[df["FullName"] == selected].iloc[0]
-            p_name = row["ProductName"]
-            p_type = row["Type"]
-            
-            st.success(f"ชื่อบนป้าย: {p_name} | ประเภท: {p_type}")
-            pk = st.text_input("รหัสภาชนะ 3 หลัก", "000", max_chars=3)
-            dt = st.date_input("วันที่", datetime.now())
-
-            if st.button("🚀 สร้างป้าย"):
-                res = generate_label(p_name, p_type, pk, dt.strftime("%d/%m/%Y"))
-                st.image(res, use_container_width=True)
-                
-                buf = io.BytesIO()
-                res.save(buf, format="PNG")
-                st.download_button("📥 ดาวน์โหลดป้าย", buf.getvalue(), f"Label_{pk}.png")
+        # ปุ่ม Download
+        buf = io.BytesIO()
+        result.save(buf, format="PNG")
+        st.download_button("📥 ดาวน์โหลดป้าย (PNG)", buf.getvalue(), f"Label_{pk_no}.png", "image/png")
 else:
-    st.error("ไม่พบไฟล์ Products.csv")
+    st.warning("ยังไม่มีข้อมูลสินค้าในไฟล์ Products.csv")
