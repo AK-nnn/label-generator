@@ -101,7 +101,7 @@ def generate_label(p_name, p_type, pk_num, date_str):
 # =========================
 
 st.set_page_config(page_title="Chemical Labeler", layout="centered")
-st.title("🏷️ ระบบสร้างป้ายภาชนะสารเคมี")
+st.title("🏷️ ระบบสร้างป้ายถัง PK")
 
 CSV_FILE = "Products.csv"
 
@@ -159,3 +159,4 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
