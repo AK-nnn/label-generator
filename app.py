@@ -15,37 +15,39 @@ SEC_A_H, SEC_B_W, SEC_C_W, SEC_D_H = cm_to_px(5.9), cm_to_px(12.5), cm_to_px(5.0
 def generate_label(display_name, p_type, pk_num, date_str):
     img = Image.new('RGB', (TOTAL_W, TOTAL_H), color='white')
     draw = ImageDraw.Draw(img)
-    draw.rectangle([0, 0, TOTAL_W-1, TOTAL_H-1], outline="black", width=5)
     
+    # วาดกรอบนอกสุด (เส้นหนาขึ้นเพื่อให้เห็นชัดตอนตัด)
+    draw.rectangle([0, 0, TOTAL_W-1, TOTAL_H-1], outline="black", width=8)
+    
+    # Mapping สี
     color_map = {"กรด": "#FF0000", "ด่าง": "#0000FF", "กลาง": "#008000"}
     bg_color = color_map.get(str(p_type).strip(), "gray")
-    draw.rectangle([5, 5, TOTAL_W-5, SEC_A_H], fill=bg_color)
+    draw.rectangle([8, 8, TOTAL_W-8, SEC_A_H], fill=bg_color)
     
-    # Path ฟอนต์มาตรฐานบน Linux (Streamlit Cloud)
     font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     
     def get_font(text, max_w, max_h, start_size):
         size = start_size
-        # กรณีหาฟอนต์ในระบบไม่เจอ จะใช้ default
         if not os.path.exists(font_path):
             return ImageFont.load_default()
         
         f = ImageFont.truetype(font_path, size)
-        while size > 10:
+        while size > 20:
             bbox = draw.textbbox((0,0), text, font=f)
             w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-            if w <= max_w-80 and h <= max_h-20: 
+            # ปรับให้เหลือ Margin แค่ 30 พิกเซล (เพื่อให้ฟอนต์ขยายได้เกือบเต็มพื้นที่)
+            if w <= max_w-30 and h <= max_h-10: 
                 break
-            size -= 10
+            size -= 5
             f = ImageFont.truetype(font_path, size)
         return f
 
-    # A. ProductName (ขยายใหญ่ - ตัวขาว)
-    f_prod = get_font(str(display_name).upper(), TOTAL_W, SEC_A_H, 400)
+    # A. ProductName (ขยายให้สะใจ เริ่มที่ 600)
+    f_prod = get_font(str(display_name).upper(), TOTAL_W, SEC_A_H, 600)
     draw.text((TOTAL_W/2, SEC_A_H/2), str(display_name).upper(), fill="white", anchor="mm", font=f_prod)
 
-    # B. PK Code (ขยายใหญ่ - ตัวดำ)
-    f_pk = get_font(f"PK {pk_num}", SEC_B_W, SEC_A_H, 450)
+    # B. PK Code (ขยายให้สะใจ เริ่มที่ 800)
+    f_pk = get_font(f"PK {pk_num}", SEC_B_W, SEC_A_H, 800)
     draw.text((SEC_B_W/2, SEC_A_H + (SEC_A_H/2)), f"PK {pk_num}", fill="black", anchor="mm", font=f_pk)
     
     # C. QR Code
@@ -53,29 +55,28 @@ def generate_label(display_name, p_type, pk_num, date_str):
     qr = qrcode.QRCode(box_size=1, border=1)
     qr.add_data(qr_data)
     qr.make(fit=True)
-    qr_img = qr.make_image().resize((SEC_C_W - 40, SEC_C_W - 40))
-    img.paste(qr_img, (SEC_B_W + 20, SEC_A_H + 20))
+    # ขยาย QR ให้ใหญ่ขึ้นอีกนิด
+    qr_img = qr.make_image().resize((SEC_C_W - 20, SEC_C_W - 20))
+    img.paste(qr_img, (SEC_B_W + 10, SEC_A_H + 10))
     
-    # D. Date (ปรับให้ตัวใหญ่ขึ้นชัดเจน)
-    # ใช้ฟอนต์หนาขนาด 80 เพื่อให้มองเห็นชัด
+    # D. Date (ขยายเป็นขนาด 100)
     try:
-        f_date = ImageFont.truetype(font_path, 80)
+        f_date = ImageFont.truetype(font_path, 100)
     except:
         f_date = ImageFont.load_default()
     
-    draw.text((TOTAL_W - 40, TOTAL_H - (SEC_D_H/2)), f"Date: {date_str}", fill="black", anchor="rm", font=f_date)
+    draw.text((TOTAL_W - 30, TOTAL_H - (SEC_D_H/2)), f"Date: {date_str}", fill="black", anchor="rm", font=f_date)
     
-    # วาดเส้นแบ่ง
-    draw.line([(0, SEC_A_H), (TOTAL_W, SEC_A_H)], fill="black", width=5)
-    draw.line([(SEC_B_W, SEC_A_H), (SEC_B_W, TOTAL_H-SEC_D_H)], fill="black", width=5)
-    draw.line([(0, TOTAL_H-SEC_D_H), (TOTAL_W, TOTAL_H-SEC_D_H)], fill="black", width=5)
+    # วาดเส้นแบ่งโครงสร้าง (หนา 8 พิกเซล)
+    draw.line([(0, SEC_A_H), (TOTAL_W, SEC_A_H)], fill="black", width=8)
+    draw.line([(SEC_B_W, SEC_A_H), (SEC_B_W, TOTAL_H-SEC_D_H)], fill="black", width=8)
+    draw.line([(0, TOTAL_H-SEC_D_H), (TOTAL_W, TOTAL_H-SEC_D_H)], fill="black", width=8)
     return img
 
-# --- UI Streamlit ---
+# --- ส่วน UI เหมือนเดิม ---
 st.set_page_config(page_title="Generator ป้ายภาชนะ", layout="centered")
 st.title("📦 ระบบสร้างป้ายภาชนะสินค้า")
 
-# ค้นหาไฟล์ Products.csv
 files = [f for f in os.listdir('.') if f.lower() == 'products.csv']
 
 if files:
@@ -87,7 +88,6 @@ if files:
     
     df.columns = df.columns.str.strip()
     
-    # ส่วนเลือกสินค้า
     if "FullName" in df.columns:
         full_names = sorted(df["FullName"].dropna().unique().tolist())
         selected = st.selectbox("เลือกสินค้า (FullName)", options=["--- กรุณาเลือก ---"] + full_names)
@@ -108,7 +108,5 @@ if files:
                 buf = io.BytesIO()
                 res.save(buf, format="PNG")
                 st.download_button("📥 ดาวน์โหลดป้าย", buf.getvalue(), f"Label_{pk}.png")
-    else:
-        st.error("หัวตารางในไฟล์ CSV ไม่ถูกต้อง")
 else:
     st.error("ไม่พบไฟล์ Products.csv")
