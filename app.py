@@ -58,7 +58,7 @@ def generate_label(p_name, p_type, pk_num, date_str):
         "acid": "#FF0000", "กรด": "#FF0000",
         "base": "#0000FF", "ด่าง": "#0000FF",
         "neutral": "#008000", "กลาง": "#008000",
-        "chlorine": "#39CCF1", "คลอรีน": "#39CCF1"
+        "chlorine": "#008000", "คลอรีน": "#008000"
     }
     bg_color = color_map.get(str(p_type).strip().lower(), "gray")
     draw.rectangle([10, 10, TOTAL_W-10, SEC_A_H], fill=bg_color)
@@ -160,6 +160,7 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
 
 
 
