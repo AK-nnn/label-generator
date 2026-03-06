@@ -117,7 +117,7 @@ def load_csv():
 df = load_csv()
 df.columns = df.columns.str.strip()
 
-with st.expander("➕ เพิ่มรายชื่อสินค้าใหม่"):
+with st.expander("➕ เพิ่มรายชื่อสินค้าใหม่ (ชั่วคราว)"):
     new_f = st.text_input("ชื่อเต็ม (FullName)")
     new_p = st.text_input("ชื่อย่อบนป้าย (ProductName)")
     new_t = st.selectbox("ประเภทสี", ["กรด", "ด่าง", "กลาง"])
@@ -160,6 +160,7 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
 
 
 
