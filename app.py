@@ -137,9 +137,9 @@ if not df.empty:
 
     col1, col2 = st.columns(2)
     with col1:
-        pk_no = st.text_input("2. รหัส PK (3 หลัก)", "001", max_chars=3)
+        pk_no = st.text_input("2. รหัส PK (ตัวเลข 3 หลัก)", "001", max_chars=3)
     with col2:
-        dt_val = st.date_input("3. วันที่", datetime.now())
+        dt_val = st.date_input("3. วันที่ (แก้ไขเป็นวันที่เริ่มใช้งานถัง/ป้าย)", datetime.now())
 
     if st.button("🚀 สร้างป้าย"):
         result_img = generate_label(row["ProductName"], row["Type"], pk_no, dt_val.strftime("%d/%m/%Y"))
@@ -160,6 +160,7 @@ if not df.empty:
         )
 else:
     st.warning("ไม่พบข้อมูลใน Products.csv กรุณาเพิ่มสินค้า")
+
 
 
 
